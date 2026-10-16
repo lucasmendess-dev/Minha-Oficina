@@ -17,14 +17,23 @@ android {
         versionName = "1.0"
     }
 
+    // Chave fixa: todas as versões saem com a mesma assinatura,
+    // então cada APK novo instala por cima do anterior sem perder os dados.
+    signingConfigs {
+        create("oficina") {
+            storeFile = file("minhaoficina.jks")
+            storePassword = "minhaoficina"
+            keyAlias = "minhaoficina"
+            keyPassword = "minhaoficina"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Assina com a chave de debug para que o APK de release possa ser instalado direto.
-            // Para publicar na Play Store, troque por uma chave sua.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("oficina")
         }
     }
 
