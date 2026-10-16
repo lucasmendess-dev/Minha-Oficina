@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -103,15 +105,23 @@ fun EditorScreen(
             TopAppBar(
                 title = { Text(if (inicial == null) "Nova ferramenta" else "Editar ferramenta", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = { IconButton(onClick = onFechar) { Icon(Icons.Outlined.Close, "Fechar") } },
-                actions = {
-                    Button(onClick = { salvar() }, shape = RoundedCornerShape(10.dp), modifier = Modifier.padding(end = 8.dp)) { Text("Salvar") }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
+        // Botão Salvar fixo na parte de baixo; sobe junto com o teclado
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Button(
+                    onClick = { salvar() },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().imePadding().navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp).height(56.dp),
+                ) { Text(if (inicial == null) "Cadastrar ferramenta" else "Salvar alterações", style = MaterialTheme.typography.labelLarge) }
+            }
+        },
     ) { pad ->
         Column(
-            Modifier.fillMaxSize().padding(pad).imePadding().verticalScroll(rememberScrollState())
+            Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {

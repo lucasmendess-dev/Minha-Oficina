@@ -182,7 +182,7 @@ private fun Cabecalho(total: Int, onExportar: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Minha Oficina", style = MaterialTheme.typography.titleLarge)
+            Text("Minhas Ferramentas", style = MaterialTheme.typography.titleLarge)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(7.dp).clip(CircleShape).background(coresDe(Situacao.DISPONIVEL).texto))
                 Spacer(Modifier.width(6.dp))

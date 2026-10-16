@@ -77,7 +77,7 @@ fun OficinaApp(vm: OficinaViewModel = viewModel()) {
         onExportar = {
             val envio = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "Inventário Minha Oficina")
+                putExtra(Intent.EXTRA_SUBJECT, "Inventário Minhas Ferramentas")
                 putExtra(Intent.EXTRA_TEXT, gerarCsv(lista))
             }
             context.startActivity(Intent.createChooser(envio, "Exportar inventário"))
