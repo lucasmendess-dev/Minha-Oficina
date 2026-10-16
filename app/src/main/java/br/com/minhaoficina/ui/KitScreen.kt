@@ -113,7 +113,7 @@ fun KitScreen(
             ),
         ) {
             item {
-                CabecalhoKit(kit, itens, onEditarKit)
+                CabecalhoKit(kit, itens)
                 Spacer(Modifier.height(16.dp))
                 Secao("FERRAMENTAS DO KIT")
             }
@@ -172,7 +172,7 @@ fun KitScreen(
 }
 
 @Composable
-private fun CabecalhoKit(kit: Kit, itens: List<Ferramenta>, onEditar: () -> Unit) {
+private fun CabecalhoKit(kit: Kit, itens: List<Ferramenta>) {
     val cont = Situacao.entries.associateWith { s -> itens.count { it.status == s } }
     val suave = TintaLima.copy(alpha = 0.62f)
     Surface(shape = RoundedCornerShape(22.dp), color = Lima, contentColor = TintaLima) {
@@ -186,16 +186,6 @@ private fun CabecalhoKit(kit: Kit, itens: List<Ferramenta>, onEditar: () -> Unit
                 Column(Modifier.weight(1f)) {
                     Text(kit.nome, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 26.sp)
                     Text(kit.local.ifBlank { "Local não informado" }, color = suave, fontWeight = FontWeight.SemiBold)
-                }
-                Button(
-                    onClick = onEditar,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = TintaLima, contentColor = Lima),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                ) {
-                    Icon(Icons.Outlined.Edit, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Editar")
                 }
             }
             Row(Modifier.fillMaxWidth()) {
