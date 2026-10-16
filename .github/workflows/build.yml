@@ -2,7 +2,11 @@ name: Gerar APK
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -26,3 +30,14 @@ jobs:
         with:
           name: MinhaOficina-apk
           path: app/build/outputs/apk/release/*.apk
+
+      # Guarda o APK mais recente no branch "apk" para download direto
+      - name: Publicar APK no branch apk
+        run: |
+          mkdir out
+          cp app/build/outputs/apk/release/*.apk out/MinhaOficina.apk
+          cd out
+          git init -q -b apk
+          git add MinhaOficina.apk
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -q -m "APK de ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" apk
