@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -64,7 +66,9 @@ import br.com.minhaoficina.data.CATEGORIAS
 import br.com.minhaoficina.data.Ferramenta
 import br.com.minhaoficina.data.status
 import br.com.minhaoficina.data.Situacao
+import br.com.minhaoficina.ui.theme.Lima
 import br.com.minhaoficina.ui.theme.Rotulo
+import br.com.minhaoficina.ui.theme.TintaLima
 import br.com.minhaoficina.ui.theme.coresDe
 
 @Composable
@@ -92,14 +96,26 @@ fun ListaScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
+        // Cabeçalho e busca ficam fixos no topo durante a rolagem
+        topBar = {
+            Column(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                    .statusBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+            ) {
+                Cabecalho(total = lista.size, onExportar = onExportar)
+                CampoBusca(busca, { busca = it })
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onNova,
                 icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                text = { Text("Nova ferramenta") },
+                text = { Text("Nova ferramenta", style = MaterialTheme.typography.labelLarge) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
         },
     ) { pad ->
@@ -107,15 +123,10 @@ fun ListaScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp, end = 16.dp,
-                top = pad.calculateTopPadding() + 8.dp,
+                top = pad.calculateTopPadding() + 4.dp,
                 bottom = pad.calculateBottomPadding() + 96.dp,
             ),
         ) {
-            item { Cabecalho(total = lista.size, onExportar = onExportar) }
-            item {
-                CampoBusca(busca, { busca = it })
-                Spacer(Modifier.height(14.dp))
-            }
             item {
                 Resumo(lista)
                 Spacer(Modifier.height(16.dp))
@@ -164,10 +175,10 @@ private fun Cabecalho(total: Int, onExportar: () -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
     ) {
         Box(
-            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary),
+            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(Lima),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Outlined.Build, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
+            Icon(Icons.Outlined.Build, null, tint = TintaLima, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -222,41 +233,48 @@ private fun Resumo(lista: List<Ferramenta>) {
     val total = lista.size
     val cont = Situacao.entries.associateWith { s -> lista.count { it.status == s } }
     val investido = lista.sumOf { it.valor }
+    val suave = TintaLima.copy(alpha = 0.62f)
+    // Cores sobre o fundo verde-limão
+    fun cor(s: Situacao) = when (s) {
+        Situacao.DISPONIVEL -> TintaLima
+        Situacao.EMPRESTADA -> TintaLima.copy(alpha = 0.42f)
+        Situacao.MANUTENCAO -> Color.White
+    }
 
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Surface(shape = RoundedCornerShape(22.dp), color = Lima, contentColor = TintaLima) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
-                    Text("INVENTÁRIO", style = Rotulo, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("INVENTÁRIO", style = Rotulo, color = suave)
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text("$total", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("$total", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 44.sp)
                         Spacer(Modifier.width(6.dp))
-                        Text("ferramentas", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
+                        Text("ferramentas", color = suave, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 7.dp))
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("VALOR INVESTIDO", style = Rotulo, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("VALOR INVESTIDO", style = Rotulo, color = suave)
                     Text(reais(investido), style = MaterialTheme.typography.titleMedium)
                 }
             }
             // Barra proporcional por situação
             Row(
-                Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(TintaLima.copy(alpha = 0.12f)),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 if (total > 0) Situacao.entries.forEach { s ->
                     val n = cont[s] ?: 0
-                    if (n > 0) Box(Modifier.weight(n.toFloat()).fillMaxSize().background(coresDe(s).texto))
+                    if (n > 0) Box(Modifier.weight(n.toFloat()).fillMaxSize().background(cor(s)))
                 }
             }
             Row(Modifier.fillMaxWidth()) {
                 Situacao.entries.forEach { s ->
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(coresDe(s).texto))
+                            Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(cor(s)))
                             Spacer(Modifier.width(6.dp))
-                            Text(s.plural, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(s.plural, style = MaterialTheme.typography.bodySmall, color = suave)
                         }
                         Text("${cont[s] ?: 0}", style = MaterialTheme.typography.titleMedium)
                     }
@@ -284,8 +302,8 @@ private fun Filtros(
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    selectedContainerColor = MaterialTheme.colorScheme.onSurface,
-                    selectedLabelColor = MaterialTheme.colorScheme.surface,
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                 ),
             )
         }
@@ -321,10 +339,10 @@ private fun Filtros(
 fun IconeCategoria(cat: String, tamanho: Int = 44) {
     Box(
         Modifier.size(tamanho.dp).clip(RoundedCornerShape((tamanho * 0.28f).dp))
-            .background(MaterialTheme.colorScheme.primaryContainer),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(iconeCategoria(cat), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size((tamanho * 0.5f).dp))
+        Icon(iconeCategoria(cat), null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size((tamanho * 0.5f).dp))
     }
 }
 
@@ -383,9 +401,9 @@ private fun Vazio(icone: ImageVector, titulo: String, texto: String) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(
-                Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+                Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(Lima),
                 contentAlignment = Alignment.Center,
-            ) { Icon(icone, null, tint = MaterialTheme.colorScheme.primary) }
+            ) { Icon(icone, null, tint = TintaLima) }
             Text(titulo, style = MaterialTheme.typography.titleMedium)
             Text(texto, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
