@@ -110,6 +110,7 @@ fun OficinaApp(vm: OficinaViewModel = viewModel()) {
             },
             onNovaNoKit = { loteKitId = kitAberto.id },
             onAbrir = { detalheId = it.id },
+            onAtualizarVarias = { lista, msg -> vm.atualizarVarias(lista); avisar(msg) },
         )
     } else {
         ListaScreen(

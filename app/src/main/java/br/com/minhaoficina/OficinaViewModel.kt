@@ -43,6 +43,12 @@ class OficinaViewModel(app: Application) : AndroidViewModel(app) {
         aoSalvar(if (k.id != 0L) k.id else id)
     }
 
+    /** Atualiza várias ferramentas de uma vez (ex.: emprestar ou devolver um kit inteiro). */
+    fun atualizarVarias(lista: List<Ferramenta>) = viewModelScope.launch {
+        val agora = System.currentTimeMillis()
+        lista.forEach { dao.salvar(it.copy(atualizadoEm = agora)) }
+    }
+
     /** Cadastra várias ferramentas de uma vez, com códigos em sequência. */
     fun salvarVarias(novas: List<Ferramenta>) = viewModelScope.launch {
         var n = ferramentas.value.maxOfOrNull { f -> f.codigo.filter { it.isDigit() }.toIntOrNull() ?: 0 } ?: 0

@@ -21,6 +21,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.AssignmentReturn
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -71,8 +73,13 @@ fun KitScreen(
     onApagarKit: () -> Unit,
     onNovaNoKit: () -> Unit,
     onAbrir: (Ferramenta) -> Unit,
+    onAtualizarVarias: (List<Ferramenta>, String) -> Unit,
 ) {
     var confirmar by rememberSaveable { mutableStateOf(false) }
+    var emprestando by rememberSaveable { mutableStateOf(false) }
+    val disponiveis = itens.filter { it.status == Situacao.DISPONIVEL }
+    val emprestadas = itens.filter { it.status == Situacao.EMPRESTADA }
+    val emManutencao = itens.count { it.status == Situacao.MANUTENCAO }
     val ordenados = itens.sortedBy { it.nome.lowercase() }
 
     Scaffold(
@@ -90,16 +97,43 @@ fun KitScreen(
             )
         },
         bottomBar = {
-            Surface(color = MaterialTheme.colorScheme.background) {
+            Row(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // Empréstimo do kit inteiro: devolve se houver itens emprestados, senão empresta os disponíveis
+                if (emprestadas.isNotEmpty() || disponiveis.isNotEmpty()) {
+                    val devolver = emprestadas.isNotEmpty()
+                    Button(
+                        onClick = {
+                            if (devolver) {
+                                onAtualizarVarias(
+                                    emprestadas.map { it.copy(situacao = Situacao.DISPONIVEL.chave, emprestadoPara = "", emprestadoEm = "") },
+                                    "Devolução do kit registrada",
+                                )
+                            } else emprestando = true
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Lima, contentColor = TintaLima),
+                        modifier = Modifier.weight(1f).height(56.dp),
+                    ) {
+                        Icon(
+                            if (devolver) Icons.AutoMirrored.Outlined.AssignmentReturn else Icons.AutoMirrored.Outlined.Logout,
+                            null, Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (devolver) "Devolver kit" else "Emprestar kit", style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    }
+                }
                 Button(
                     onClick = onNovaNoKit,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp).height(56.dp),
+                    modifier = Modifier.weight(1f).height(56.dp),
                 ) {
                     Icon(Icons.Outlined.Add, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Adicionar ferramentas", style = MaterialTheme.typography.labelLarge)
+                    Text(if (itens.isEmpty()) "Adicionar ferramentas" else "Adicionar", style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 }
             }
         },
@@ -145,6 +179,22 @@ fun KitScreen(
                 }
             }
         }
+    }
+
+    if (emprestando) {
+        EmprestarKitDialog(
+            kit = kit,
+            quantidade = disponiveis.size,
+            foraEmManutencao = emManutencao,
+            onFechar = { emprestando = false },
+            onConfirmar = { para, data ->
+                emprestando = false
+                onAtualizarVarias(
+                    disponiveis.map { it.copy(situacao = Situacao.EMPRESTADA.chave, emprestadoPara = para, emprestadoEm = data) },
+                    "Kit emprestado para $para",
+                )
+            },
+        )
     }
 
     if (confirmar) {
@@ -204,6 +254,40 @@ private fun CabecalhoKit(kit: Kit, itens: List<Ferramenta>) {
             if (valor > 0) Text("Valor do kit: ${reais(valor)}", color = suave, fontWeight = FontWeight.SemiBold)
         }
     }
+}
+
+@Composable
+private fun EmprestarKitDialog(
+    kit: Kit,
+    quantidade: Int,
+    foraEmManutencao: Int,
+    onFechar: () -> Unit,
+    onConfirmar: (String, String) -> Unit,
+) {
+    var para by rememberSaveable { mutableStateOf("") }
+    var data by rememberSaveable { mutableStateOf(hojeIso()) }
+    var erro by rememberSaveable { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onFechar,
+        title = { Text("Emprestar ${kit.nome}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    (if (quantidade == 1) "1 ferramenta disponível será marcada como emprestada."
+                    else "As $quantidade ferramentas disponíveis serão marcadas como emprestadas.") +
+                        if (foraEmManutencao > 0) " As que estão em manutenção ficam de fora." else "",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Campo("Emprestar para", para, { para = it; erro = false }, placeholder = "Nome da pessoa",
+                    erro = if (erro) "Informe para quem você emprestou." else null)
+                CampoData("Data", data) { data = it }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { if (para.isBlank()) erro = true else onConfirmar(para.trim(), data) }) { Text("Emprestar") }
+        },
+        dismissButton = { TextButton(onClick = onFechar) { Text("Cancelar") } },
+    )
 }
 
 /** Diálogo para criar ou editar um kit. */
