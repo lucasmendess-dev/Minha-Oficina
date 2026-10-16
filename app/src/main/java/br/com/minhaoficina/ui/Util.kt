@@ -62,12 +62,12 @@ fun parseValor(texto: String): Double =
 fun valorParaTexto(v: Double): String =
     if (v <= 0.0) "" else String.format(PT_BR, "%.2f", v)
 
-fun gerarCsv(lista: List<Ferramenta>): String {
+fun gerarCsv(lista: List<Ferramenta>, kits: Map<Long, String> = emptyMap()): String {
     fun c(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
-    val cab = "Código;Nome;Marca;Categoria;Local;Valor;Situação;Emprestada para;Desde;Observações"
+    val cab = "Código;Kit;Nome;Marca;Categoria;Local;Valor;Situação;Emprestada para;Desde;Observações"
     return (listOf(cab) + lista.map { f ->
         listOf(
-            f.codigo, f.nome, f.marca, f.categoria, f.local, valorParaTexto(f.valor),
+            f.codigo, kits[f.kitId] ?: "", f.nome, f.marca, f.categoria, f.local, valorParaTexto(f.valor),
             f.status.rotulo, f.emprestadoPara, dataBr(f.emprestadoEm), f.notas,
         ).joinToString(";") { c(it) }
     }).joinToString("\n")

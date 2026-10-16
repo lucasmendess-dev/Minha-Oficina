@@ -16,4 +16,8 @@ interface FerramentaDao {
 
     @Delete
     suspend fun apagar(ferramenta: Ferramenta)
+
+    /** Ao apagar um kit, as ferramentas dele voltam a ser avulsas. */
+    @Query("UPDATE ferramentas SET kitId = NULL WHERE kitId = :kitId")
+    suspend fun soltarDoKit(kitId: Long)
 }

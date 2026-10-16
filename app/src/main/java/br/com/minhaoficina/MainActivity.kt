@@ -20,6 +20,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import br.com.minhaoficina.data.Ferramenta
 import br.com.minhaoficina.ui.DetalheSheet
 import br.com.minhaoficina.ui.EditorScreen
+import br.com.minhaoficina.ui.KitDialog
+import br.com.minhaoficina.ui.KitScreen
 import br.com.minhaoficina.ui.ListaScreen
 import br.com.minhaoficina.ui.gerarCsv
 import br.com.minhaoficina.ui.theme.OficinaTheme
@@ -35,17 +37,21 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** -1 = nenhuma; 0 = nova ferramenta; >0 = id da ferramenta em edição */
+/** -1 = nenhuma; 0 = novo; >0 = id do item */
 private const val NENHUM = -1L
 
 @Composable
 fun OficinaApp(vm: OficinaViewModel = viewModel()) {
     val lista by vm.ferramentas.collectAsStateWithLifecycle()
+    val kits by vm.kits.collectAsStateWithLifecycle()
     var editandoId by rememberSaveable { mutableStateOf(NENHUM) }
     var detalheId by rememberSaveable { mutableStateOf(NENHUM) }
+    var kitAbertoId by rememberSaveable { mutableStateOf(NENHUM) }
+    var kitEditandoId by rememberSaveable { mutableStateOf(NENHUM) }
     val snack = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val kitAberto = kits.firstOrNull { it.id == kitAbertoId }
 
     fun avisar(msg: String) { scope.launch { snack.showSnackbar(msg) } }
 
@@ -54,6 +60,8 @@ fun OficinaApp(vm: OficinaViewModel = viewModel()) {
         BackHandler { editandoId = NENHUM }
         EditorScreen(
             inicial = atual,
+            kits = kits,
+            kitPadrao = kitAberto?.id,
             onFechar = { editandoId = NENHUM },
             onSalvar = { f ->
                 vm.salvar(f)
@@ -69,28 +77,63 @@ fun OficinaApp(vm: OficinaViewModel = viewModel()) {
         return
     }
 
-    ListaScreen(
-        lista = lista,
-        snackbar = snack,
-        onNova = { editandoId = 0L },
-        onAbrir = { detalheId = it.id },
-        onExportar = {
-            val envio = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "Inventário Minhas Ferramentas")
-                putExtra(Intent.EXTRA_TEXT, gerarCsv(lista))
-            }
-            context.startActivity(Intent.createChooser(envio, "Exportar inventário"))
-        },
-    )
+    if (kitAberto != null) {
+        BackHandler { kitAbertoId = NENHUM }
+        KitScreen(
+            kit = kitAberto,
+            itens = lista.filter { it.kitId == kitAberto.id },
+            snackbar = snack,
+            onVoltar = { kitAbertoId = NENHUM },
+            onEditarKit = { kitEditandoId = kitAberto.id },
+            onApagarKit = {
+                vm.apagarKit(kitAberto)
+                kitAbertoId = NENHUM
+                avisar("Kit apagado")
+            },
+            onNovaNoKit = { editandoId = 0L },
+            onAbrir = { detalheId = it.id },
+        )
+    } else {
+        ListaScreen(
+            lista = lista,
+            kits = kits,
+            snackbar = snack,
+            onNova = { editandoId = 0L },
+            onNovoKit = { kitEditandoId = 0L },
+            onAbrir = { detalheId = it.id },
+            onAbrirKit = { kitAbertoId = it.id },
+            onExportar = {
+                val envio = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Inventário Minhas Ferramentas")
+                    putExtra(Intent.EXTRA_TEXT, gerarCsv(lista, kits.associate { it.id to it.nome }))
+                }
+                context.startActivity(Intent.createChooser(envio, "Exportar inventário"))
+            },
+        )
+    }
 
     val detalhe = lista.firstOrNull { it.id == detalheId }
     if (detalhe != null) {
         DetalheSheet(
             f = detalhe,
+            kitNome = kits.firstOrNull { it.id == detalhe.kitId }?.nome,
             onFechar = { detalheId = NENHUM },
             onEditar = { detalheId = NENHUM; editandoId = detalhe.id },
             onSalvar = { f, msg -> vm.salvar(f); avisar(msg) },
+        )
+    }
+
+    if (kitEditandoId != NENHUM) {
+        val kitAtual = kits.firstOrNull { it.id == kitEditandoId }
+        KitDialog(
+            inicial = kitAtual,
+            onFechar = { kitEditandoId = NENHUM },
+            onSalvar = { k ->
+                vm.salvarKit(k)
+                kitEditandoId = NENHUM
+                avisar(if (kitAtual == null) "Kit criado" else "Kit atualizado")
+            },
         )
     }
 }

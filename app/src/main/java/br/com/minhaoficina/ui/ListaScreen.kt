@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -27,12 +28,14 @@ import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.HomeRepairService
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -64,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.minhaoficina.data.CATEGORIAS
 import br.com.minhaoficina.data.Ferramenta
+import br.com.minhaoficina.data.Kit
 import br.com.minhaoficina.data.status
 import br.com.minhaoficina.data.Situacao
 import br.com.minhaoficina.ui.theme.Lima
@@ -74,9 +78,12 @@ import br.com.minhaoficina.ui.theme.coresDe
 @Composable
 fun ListaScreen(
     lista: List<Ferramenta>,
+    kits: List<Kit>,
     snackbar: SnackbarHostState,
     onNova: () -> Unit,
+    onNovoKit: () -> Unit,
     onAbrir: (Ferramenta) -> Unit,
+    onAbrirKit: (Kit) -> Unit,
     onExportar: () -> Unit,
 ) {
     var busca by rememberSaveable { mutableStateOf("") }
@@ -84,11 +91,16 @@ fun ListaScreen(
     var categoria by rememberSaveable { mutableStateOf("") }
 
     val q = busca.trim().lowercase()
+    val nomeKit = kits.associate { it.id to it.nome }
+    // Sem busca nem filtros: mostra os kits e as ferramentas avulsas.
+    // Com busca ou filtro: mostra todas as ferramentas que combinam, inclusive as de dentro dos kits.
+    val agrupado = q.isEmpty() && filtro.isEmpty() && categoria.isEmpty()
     val visiveis = lista
+        .filter { !agrupado || it.kitId == null || it.kitId !in nomeKit }
         .filter { filtro.isEmpty() || it.situacao == filtro }
         .filter { categoria.isEmpty() || it.categoria == categoria }
         .filter { f ->
-            q.isEmpty() || listOf(f.nome, f.marca, f.local, f.emprestadoPara, f.codigo)
+            q.isEmpty() || listOf(f.nome, f.marca, f.local, f.emprestadoPara, f.codigo, nomeKit[f.kitId] ?: "")
                 .joinToString(" ").lowercase().contains(q)
         }
         .sortedWith(compareBy<Ferramenta> { if (it.status == Situacao.EMPRESTADA) 0 else 1 }.thenBy { it.nome.lowercase() })
@@ -106,17 +118,33 @@ fun ListaScreen(
                 CampoBusca(busca, { busca = it })
             }
         },
-        floatingActionButtonPosition = FabPosition.Center,
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNova,
-                icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                text = { Text("Nova ferramenta", style = MaterialTheme.typography.labelLarge) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            )
+        // Botões fixos na parte de baixo, ocupando a largura da tela
+        bottomBar = {
+            Row(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Button(
+                    onClick = onNova,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1.5f).height(56.dp),
+                ) {
+                    Icon(Icons.Outlined.Add, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ferramenta", style = MaterialTheme.typography.labelLarge)
+                }
+                Button(
+                    onClick = onNovoKit,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Lima, contentColor = TintaLima),
+                    modifier = Modifier.weight(1f).height(56.dp),
+                ) {
+                    Icon(Icons.Outlined.HomeRepairService, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Kit", style = MaterialTheme.typography.labelLarge)
+                }
+            }
         },
     ) { pad ->
         LazyColumn(
@@ -124,7 +152,7 @@ fun ListaScreen(
             contentPadding = PaddingValues(
                 start = 16.dp, end = 16.dp,
                 top = pad.calculateTopPadding() + 4.dp,
-                bottom = pad.calculateBottomPadding() + 96.dp,
+                bottom = pad.calculateBottomPadding() + 16.dp,
             ),
         ) {
             item {
@@ -139,10 +167,26 @@ fun ListaScreen(
                 Spacer(Modifier.height(10.dp))
             }
 
+            if (agrupado && kits.isNotEmpty()) {
+                item { Secao("KITS") }
+                items(kits, key = { "kit-${it.id}" }) { k ->
+                    CartaoKit(k, lista.filter { it.kitId == k.id }) { onAbrirKit(k) }
+                    Spacer(Modifier.height(8.dp))
+                }
+                item { Secao("FERRAMENTAS AVULSAS") }
+            }
+
             when {
-                lista.isEmpty() -> item {
+                lista.isEmpty() && kits.isEmpty() -> item {
                     Vazio(Icons.Outlined.Build, "Seu inventário está vazio",
-                        "Toque em Nova ferramenta para cadastrar a primeira e registrar onde ela fica guardada.")
+                        "Cadastre uma ferramenta ou crie um kit, como \"Kit chave de boca\", para agrupar várias ferramentas.")
+                }
+                visiveis.isEmpty() && agrupado -> item {
+                    Text(
+                        "Nenhuma ferramenta fora de kits.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                    )
                 }
                 visiveis.isEmpty() -> item {
                     Vazio(Icons.Outlined.Search, "Nenhum resultado", "Tente outra busca ou troque o filtro.")
@@ -158,11 +202,51 @@ fun ListaScreen(
                     ) {
                         Column {
                             if (i > 0) HorizontalDivider(Modifier.padding(start = 70.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            ItemFerramenta(f) { onAbrir(f) }
+                            ItemFerramenta(f, kitNome = if (agrupado) null else nomeKit[f.kitId]) { onAbrir(f) }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun Secao(titulo: String) {
+    Text(
+        titulo, style = Rotulo, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun CartaoKit(k: Kit, itens: List<Ferramenta>, onClick: () -> Unit) {
+    val emprestadas = itens.count { it.status == Situacao.EMPRESTADA }
+    val cor = MaterialTheme.colorScheme.onPrimary
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = cor,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(cor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.HomeRepairService, null, Modifier.size(24.dp)) }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(k.nome, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val partes = buildList {
+                    add(if (itens.size == 1) "1 ferramenta" else "${itens.size} ferramentas")
+                    if (emprestadas > 0) add(if (emprestadas == 1) "1 emprestada" else "$emprestadas emprestadas")
+                    if (k.local.isNotBlank()) add(k.local)
+                }
+                Text(partes.joinToString(" · "), style = MaterialTheme.typography.bodyMedium,
+                    color = cor.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = cor.copy(alpha = 0.7f))
         }
     }
 }
@@ -359,7 +443,7 @@ fun ChipSituacao(s: Situacao) {
 }
 
 @Composable
-private fun ItemFerramenta(f: Ferramenta, onClick: () -> Unit) {
+fun ItemFerramenta(f: Ferramenta, kitNome: String? = null, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -378,7 +462,7 @@ private fun ItemFerramenta(f: Ferramenta, onClick: () -> Unit) {
                 )
             } else {
                 Text(
-                    listOf(f.marca, f.local).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { f.categoria },
+                    listOfNotNull(kitNome, f.marca, f.local).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { f.categoria },
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )

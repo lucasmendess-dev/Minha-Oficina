@@ -47,6 +47,7 @@ import br.com.minhaoficina.ui.theme.coresDe
 @Composable
 fun DetalheSheet(
     f: Ferramenta,
+    kitNome: String?,
     onFechar: () -> Unit,
     onEditar: () -> Unit,
     onSalvar: (Ferramenta, String) -> Unit,
@@ -92,6 +93,7 @@ fun DetalheSheet(
 
             val linhas = listOf(
                 "Código" to f.codigo,
+                "Kit" to (kitNome ?: ""),
                 "Categoria" to f.categoria,
                 "Marca / modelo" to f.marca,
                 "Onde fica" to f.local,

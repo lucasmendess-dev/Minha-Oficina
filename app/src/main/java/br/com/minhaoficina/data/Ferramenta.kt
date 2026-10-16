@@ -32,6 +32,8 @@ data class Ferramenta(
     val notas: String = "",
     val criadoEm: Long = System.currentTimeMillis(),
     val atualizadoEm: Long = System.currentTimeMillis(),
+    /** Kit ao qual a ferramenta pertence; null = ferramenta avulsa. */
+    val kitId: Long? = null,
 )
 
 val Ferramenta.status: Situacao get() = Situacao.de(situacao)

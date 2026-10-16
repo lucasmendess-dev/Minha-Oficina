@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.HomeRepairService
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -58,6 +59,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import br.com.minhaoficina.data.CATEGORIAS
 import br.com.minhaoficina.data.Ferramenta
+import br.com.minhaoficina.data.Kit
 import br.com.minhaoficina.data.Situacao
 import br.com.minhaoficina.ui.theme.Rotulo
 import java.time.Instant
@@ -67,6 +69,8 @@ import java.time.ZoneOffset
 @Composable
 fun EditorScreen(
     inicial: Ferramenta?,
+    kits: List<Kit>,
+    kitPadrao: Long?,
     onFechar: () -> Unit,
     onSalvar: (Ferramenta) -> Unit,
     onApagar: (Ferramenta) -> Unit,
@@ -81,6 +85,8 @@ fun EditorScreen(
     var para by rememberSaveable(chave) { mutableStateOf(inicial?.emprestadoPara ?: "") }
     var desde by rememberSaveable(chave) { mutableStateOf(inicial?.emprestadoEm ?: "") }
     var notas by rememberSaveable(chave) { mutableStateOf(inicial?.notas ?: "") }
+    // -1 = sem kit (ferramenta avulsa)
+    var kitId by rememberSaveable(chave) { mutableStateOf(inicial?.kitId ?: kitPadrao ?: -1L) }
     var erroNome by rememberSaveable { mutableStateOf(false) }
     var confirmarApagar by rememberSaveable { mutableStateOf(false) }
 
@@ -95,6 +101,7 @@ fun EditorScreen(
                 emprestadoPara = if (emp) para.trim() else "",
                 emprestadoEm = if (emp) desde.ifBlank { hojeIso() } else "",
                 notas = notas.trim(),
+                kitId = kitId.takeIf { id -> id > 0 && kits.any { it.id == id } },
             )
         )
     }
@@ -130,6 +137,7 @@ fun EditorScreen(
                     erro = if (erroNome) "Dê um nome para a ferramenta." else null)
                 Campo("Marca / modelo", marca, { marca = it }, placeholder = "Ex.: Bosch GSB 13 RE")
                 SeletorCategoria(categoria) { categoria = it }
+                if (kits.isNotEmpty()) SeletorKit(kits, kitId) { kitId = it }
             }
             Grupo("ARMAZENAMENTO E VALOR") {
                 Campo("Onde fica", local, { local = it }, placeholder = "Ex.: Armário, prateleira 2")
@@ -270,6 +278,35 @@ fun CampoData(rotulo: String, iso: String, onData: (String) -> Unit) {
             },
             dismissButton = { TextButton(onClick = { aberto = false }) { Text("Cancelar") } },
         ) { DatePicker(state = estado) }
+    }
+}
+
+@Composable
+private fun SeletorKit(kits: List<Kit>, atual: Long, onEscolher: (Long) -> Unit) {
+    var aberto by rememberSaveable { mutableStateOf(false) }
+    val nome = kits.firstOrNull { it.id == atual }?.nome ?: "Nenhum (ferramenta avulsa)"
+    ExposedDropdownMenuBox(expanded = aberto, onExpandedChange = { aberto = it }) {
+        OutlinedTextField(
+            value = nome,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Kit") },
+            leadingIcon = { Icon(Icons.Outlined.HomeRepairService, null) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = aberto) },
+            shape = RoundedCornerShape(12.dp),
+            colors = coresCampo(),
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = aberto, onDismissRequest = { aberto = false }) {
+            DropdownMenuItem(text = { Text("Nenhum (ferramenta avulsa)") }, onClick = { onEscolher(-1L); aberto = false })
+            kits.forEach { k ->
+                DropdownMenuItem(
+                    text = { Text(k.nome) },
+                    leadingIcon = { Icon(Icons.Outlined.HomeRepairService, null) },
+                    onClick = { onEscolher(k.id); aberto = false },
+                )
+            }
+        }
     }
 }
 
