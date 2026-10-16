@@ -13,8 +13,8 @@ android {
         applicationId = "br.com.minhaoficina"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     // Chave fixa: todas as versões saem com a mesma assinatura,

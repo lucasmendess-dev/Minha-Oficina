@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
@@ -71,6 +72,7 @@ fun EditorScreen(
     inicial: Ferramenta?,
     kits: List<Kit>,
     kitPadrao: Long?,
+    onCriarKit: (Kit, (Long) -> Unit) -> Unit,
     onFechar: () -> Unit,
     onSalvar: (Ferramenta) -> Unit,
     onApagar: (Ferramenta) -> Unit,
@@ -87,6 +89,9 @@ fun EditorScreen(
     var notas by rememberSaveable(chave) { mutableStateOf(inicial?.notas ?: "") }
     // -1 = sem kit (ferramenta avulsa)
     var kitId by rememberSaveable(chave) { mutableStateOf(inicial?.kitId ?: kitPadrao ?: -1L) }
+    var criandoKit by rememberSaveable { mutableStateOf(false) }
+    // Id do kit recém-criado: aceito mesmo antes de a lista de kits atualizar
+    var kitNovoId by rememberSaveable { mutableStateOf(-1L) }
     var erroNome by rememberSaveable { mutableStateOf(false) }
     var confirmarApagar by rememberSaveable { mutableStateOf(false) }
 
@@ -101,7 +106,7 @@ fun EditorScreen(
                 emprestadoPara = if (emp) para.trim() else "",
                 emprestadoEm = if (emp) desde.ifBlank { hojeIso() } else "",
                 notas = notas.trim(),
-                kitId = kitId.takeIf { id -> id > 0 && kits.any { it.id == id } },
+                kitId = kitId.takeIf { id -> id > 0 && (id == kitNovoId || kits.any { it.id == id }) },
             )
         )
     }
@@ -137,7 +142,7 @@ fun EditorScreen(
                     erro = if (erroNome) "Dê um nome para a ferramenta." else null)
                 Campo("Marca / modelo", marca, { marca = it }, placeholder = "Ex.: Bosch GSB 13 RE")
                 SeletorCategoria(categoria) { categoria = it }
-                if (kits.isNotEmpty()) SeletorKit(kits, kitId) { kitId = it }
+                SeletorKit(kits, kitId, onEscolher = { kitId = it }, onNovo = { criandoKit = true })
             }
             Grupo("ARMAZENAMENTO E VALOR") {
                 Campo("Onde fica", local, { local = it }, placeholder = "Ex.: Armário, prateleira 2")
@@ -201,6 +206,17 @@ fun EditorScreen(
             }
             Spacer(Modifier.padding(bottom = 24.dp))
         }
+    }
+
+    if (criandoKit) {
+        KitDialog(
+            inicial = null,
+            onFechar = { criandoKit = false },
+            onSalvar = { k ->
+                criandoKit = false
+                onCriarKit(k) { id -> kitNovoId = id; kitId = id }
+            },
+        )
     }
 }
 
@@ -282,9 +298,9 @@ fun CampoData(rotulo: String, iso: String, onData: (String) -> Unit) {
 }
 
 @Composable
-private fun SeletorKit(kits: List<Kit>, atual: Long, onEscolher: (Long) -> Unit) {
+private fun SeletorKit(kits: List<Kit>, atual: Long, onEscolher: (Long) -> Unit, onNovo: () -> Unit) {
     var aberto by rememberSaveable { mutableStateOf(false) }
-    val nome = kits.firstOrNull { it.id == atual }?.nome ?: "Nenhum (ferramenta avulsa)"
+    val nome = kits.firstOrNull { it.id == atual }?.nome ?: if (atual > 0) "Kit novo" else "Nenhum (ferramenta avulsa)"
     ExposedDropdownMenuBox(expanded = aberto, onExpandedChange = { aberto = it }) {
         OutlinedTextField(
             value = nome,
@@ -298,6 +314,11 @@ private fun SeletorKit(kits: List<Kit>, atual: Long, onEscolher: (Long) -> Unit)
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(expanded = aberto, onDismissRequest = { aberto = false }) {
+            DropdownMenuItem(
+                text = { Text("Criar novo kit…", fontWeight = FontWeight.Bold) },
+                leadingIcon = { Icon(Icons.Outlined.Add, null) },
+                onClick = { aberto = false; onNovo() },
+            )
             DropdownMenuItem(text = { Text("Nenhum (ferramenta avulsa)") }, onClick = { onEscolher(-1L); aberto = false })
             kits.forEach { k ->
                 DropdownMenuItem(

@@ -92,10 +92,10 @@ fun ListaScreen(
 
     val q = busca.trim().lowercase()
     val nomeKit = kits.associate { it.id to it.nome }
-    // Sem busca nem filtros: mostra os kits e as ferramentas avulsas.
-    // Com busca ou filtro: mostra todas as ferramentas que combinam, inclusive as de dentro dos kits.
+    // Sem busca nem filtros: kits e ferramentas fora de kits aparecem juntos numa só lista.
+    // Com busca ou filtro: aparecem também as ferramentas de dentro dos kits que combinam.
     val agrupado = q.isEmpty() && filtro.isEmpty() && categoria.isEmpty()
-    val visiveis = lista
+    val ferramentas = lista
         .filter { !agrupado || it.kitId == null || it.kitId !in nomeKit }
         .filter { filtro.isEmpty() || it.situacao == filtro }
         .filter { categoria.isEmpty() || it.categoria == categoria }
@@ -103,7 +103,11 @@ fun ListaScreen(
             q.isEmpty() || listOf(f.nome, f.marca, f.local, f.emprestadoPara, f.codigo, nomeKit[f.kitId] ?: "")
                 .joinToString(" ").lowercase().contains(q)
         }
-        .sortedWith(compareBy<Ferramenta> { if (it.status == Situacao.EMPRESTADA) 0 else 1 }.thenBy { it.nome.lowercase() })
+    val kitsVisiveis = if (filtro.isNotEmpty() || categoria.isNotEmpty()) emptyList()
+        else kits.filter { k -> q.isEmpty() || "${k.nome} ${k.local}".lowercase().contains(q) }
+    val entradas: List<Entrada> = (kitsVisiveis.map { k -> Entrada.DeKit(k, lista.filter { it.kitId == k.id }) } +
+        ferramentas.map { Entrada.DeFerramenta(it) })
+        .sortedBy { it.nome.lowercase() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -167,33 +171,17 @@ fun ListaScreen(
                 Spacer(Modifier.height(10.dp))
             }
 
-            if (agrupado && kits.isNotEmpty()) {
-                item { Secao("KITS") }
-                items(kits, key = { "kit-${it.id}" }) { k ->
-                    CartaoKit(k, lista.filter { it.kitId == k.id }) { onAbrirKit(k) }
-                    Spacer(Modifier.height(8.dp))
-                }
-                item { Secao("FERRAMENTAS AVULSAS") }
-            }
-
             when {
                 lista.isEmpty() && kits.isEmpty() -> item {
                     Vazio(Icons.Outlined.Build, "Seu inventário está vazio",
                         "Cadastre uma ferramenta ou crie um kit, como \"Kit chave de boca\", para agrupar várias ferramentas.")
                 }
-                visiveis.isEmpty() && agrupado -> item {
-                    Text(
-                        "Nenhuma ferramenta fora de kits.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                    )
-                }
-                visiveis.isEmpty() -> item {
+                entradas.isEmpty() -> item {
                     Vazio(Icons.Outlined.Search, "Nenhum resultado", "Tente outra busca ou troque o filtro.")
                 }
-                else -> itemsIndexed(visiveis, key = { _, f -> f.id }) { i, f ->
+                else -> itemsIndexed(entradas, key = { _, e -> e.chave }) { i, e ->
                     val topo = if (i == 0) 16.dp else 0.dp
-                    val base = if (i == visiveis.lastIndex) 16.dp else 0.dp
+                    val base = if (i == entradas.lastIndex) 16.dp else 0.dp
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(topStart = topo, topEnd = topo, bottomStart = base, bottomEnd = base),
@@ -202,12 +190,62 @@ fun ListaScreen(
                     ) {
                         Column {
                             if (i > 0) HorizontalDivider(Modifier.padding(start = 70.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            ItemFerramenta(f, kitNome = if (agrupado) null else nomeKit[f.kitId]) { onAbrir(f) }
+                            when (e) {
+                                is Entrada.DeKit -> ItemKit(e.kit, e.itens) { onAbrirKit(e.kit) }
+                                is Entrada.DeFerramenta -> ItemFerramenta(e.f, kitNome = if (agrupado) null else nomeKit[e.f.kitId]) { onAbrir(e.f) }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** Uma linha da lista principal: um kit ou uma ferramenta. */
+private sealed interface Entrada {
+    val nome: String
+    val chave: String
+    data class DeKit(val kit: Kit, val itens: List<Ferramenta>) : Entrada {
+        override val nome get() = kit.nome
+        override val chave get() = "k${kit.id}"
+    }
+    data class DeFerramenta(val f: Ferramenta) : Entrada {
+        override val nome get() = f.nome
+        override val chave get() = "f${f.id}"
+    }
+}
+
+@Composable
+private fun ItemKit(k: Kit, itens: List<Ferramenta>, onClick: () -> Unit) {
+    val emprestadas = itens.count { it.status == Situacao.EMPRESTADA }
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Lima),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Outlined.HomeRepairService, null, tint = TintaLima, modifier = Modifier.size(22.dp)) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(k.nome, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val partes = buildList {
+                add(if (itens.size == 1) "1 ferramenta" else "${itens.size} ferramentas")
+                if (emprestadas > 0) add(if (emprestadas == 1) "1 emprestada" else "$emprestadas emprestadas")
+                if (k.local.isNotBlank()) add(k.local)
+            }
+            Text(
+                partes.joinToString(" · "), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "KIT", color = TintaLima, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.8.sp,
+            modifier = Modifier.clip(CircleShape).background(Lima).padding(horizontal = 10.dp, vertical = 3.dp),
+        )
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
     }
 }
 
@@ -217,38 +255,6 @@ fun Secao(titulo: String) {
         titulo, style = Rotulo, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp),
     )
-}
-
-@Composable
-private fun CartaoKit(k: Kit, itens: List<Ferramenta>, onClick: () -> Unit) {
-    val emprestadas = itens.count { it.status == Situacao.EMPRESTADA }
-    val cor = MaterialTheme.colorScheme.onPrimary
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = cor,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(cor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Outlined.HomeRepairService, null, Modifier.size(24.dp)) }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(k.nome, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val partes = buildList {
-                    add(if (itens.size == 1) "1 ferramenta" else "${itens.size} ferramentas")
-                    if (emprestadas > 0) add(if (emprestadas == 1) "1 emprestada" else "$emprestadas emprestadas")
-                    if (k.local.isNotBlank()) add(k.local)
-                }
-                Text(partes.joinToString(" · "), style = MaterialTheme.typography.bodyMedium,
-                    color = cor.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = cor.copy(alpha = 0.7f))
-        }
-    }
 }
 
 @Composable

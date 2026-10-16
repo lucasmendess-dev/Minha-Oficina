@@ -37,7 +37,21 @@ class OficinaViewModel(app: Application) : AndroidViewModel(app) {
     val kits: StateFlow<List<Kit>> =
         kitDao.todos().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun salvarKit(k: Kit) = viewModelScope.launch { kitDao.salvar(k.copy(nome = k.nome.trim(), local = k.local.trim())) }
+    /** Salva o kit e devolve o id dele em [aoSalvar] (útil para já vincular a ferramenta ao kit novo). */
+    fun salvarKit(k: Kit, aoSalvar: (Long) -> Unit = {}) = viewModelScope.launch {
+        val id = kitDao.salvar(k.copy(nome = k.nome.trim(), local = k.local.trim()))
+        aoSalvar(if (k.id != 0L) k.id else id)
+    }
+
+    /** Cadastra várias ferramentas de uma vez, com códigos em sequência. */
+    fun salvarVarias(novas: List<Ferramenta>) = viewModelScope.launch {
+        var n = ferramentas.value.maxOfOrNull { f -> f.codigo.filter { it.isDigit() }.toIntOrNull() ?: 0 } ?: 0
+        val agora = System.currentTimeMillis()
+        novas.forEach { f ->
+            n += 1
+            dao.salvar(f.copy(codigo = "FER-" + n.toString().padStart(3, '0'), criadoEm = agora, atualizadoEm = agora))
+        }
+    }
 
     /** Apaga o kit; as ferramentas dele continuam cadastradas, como avulsas. */
     fun apagarKit(k: Kit) = viewModelScope.launch {

@@ -99,7 +99,7 @@ fun KitScreen(
                 ) {
                     Icon(Icons.Outlined.Add, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Adicionar ferramenta ao kit", style = MaterialTheme.typography.labelLarge)
+                    Text("Adicionar ferramentas", style = MaterialTheme.typography.labelLarge)
                 }
             }
         },
@@ -113,7 +113,7 @@ fun KitScreen(
             ),
         ) {
             item {
-                CabecalhoKit(kit, itens)
+                CabecalhoKit(kit, itens, onEditarKit)
                 Spacer(Modifier.height(16.dp))
                 Secao("FERRAMENTAS DO KIT")
             }
@@ -121,7 +121,7 @@ fun KitScreen(
                 item {
                     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                         Text(
-                            "Este kit ainda está vazio. Toque em \"Adicionar ferramenta ao kit\" para cadastrar a primeira, " +
+                            "Este kit ainda está vazio. Toque em \"Adicionar ferramentas\" para cadastrar várias de uma vez, " +
                                 "ou edite uma ferramenta existente e escolha este kit.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -172,7 +172,7 @@ fun KitScreen(
 }
 
 @Composable
-private fun CabecalhoKit(kit: Kit, itens: List<Ferramenta>) {
+private fun CabecalhoKit(kit: Kit, itens: List<Ferramenta>, onEditar: () -> Unit) {
     val cont = Situacao.entries.associateWith { s -> itens.count { it.status == s } }
     val suave = TintaLima.copy(alpha = 0.62f)
     Surface(shape = RoundedCornerShape(22.dp), color = Lima, contentColor = TintaLima) {
@@ -185,7 +185,17 @@ private fun CabecalhoKit(kit: Kit, itens: List<Ferramenta>) {
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(kit.nome, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 26.sp)
-                    if (kit.local.isNotBlank()) Text(kit.local, color = suave, fontWeight = FontWeight.SemiBold)
+                    Text(kit.local.ifBlank { "Local não informado" }, color = suave, fontWeight = FontWeight.SemiBold)
+                }
+                Button(
+                    onClick = onEditar,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = TintaLima, contentColor = Lima),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                ) {
+                    Icon(Icons.Outlined.Edit, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Editar")
                 }
             }
             Row(Modifier.fillMaxWidth()) {

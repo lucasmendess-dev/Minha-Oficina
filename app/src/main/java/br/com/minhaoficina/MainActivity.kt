@@ -23,6 +23,7 @@ import br.com.minhaoficina.ui.EditorScreen
 import br.com.minhaoficina.ui.KitDialog
 import br.com.minhaoficina.ui.KitScreen
 import br.com.minhaoficina.ui.ListaScreen
+import br.com.minhaoficina.ui.LoteScreen
 import br.com.minhaoficina.ui.gerarCsv
 import br.com.minhaoficina.ui.theme.OficinaTheme
 import kotlinx.coroutines.launch
@@ -48,12 +49,28 @@ fun OficinaApp(vm: OficinaViewModel = viewModel()) {
     var detalheId by rememberSaveable { mutableStateOf(NENHUM) }
     var kitAbertoId by rememberSaveable { mutableStateOf(NENHUM) }
     var kitEditandoId by rememberSaveable { mutableStateOf(NENHUM) }
+    var loteKitId by rememberSaveable { mutableStateOf(NENHUM) }
     val snack = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val kitAberto = kits.firstOrNull { it.id == kitAbertoId }
 
     fun avisar(msg: String) { scope.launch { snack.showSnackbar(msg) } }
+
+    val kitLote = kits.firstOrNull { it.id == loteKitId }
+    if (kitLote != null) {
+        BackHandler { loteKitId = NENHUM }
+        LoteScreen(
+            kit = kitLote,
+            onFechar = { loteKitId = NENHUM },
+            onSalvar = { novas ->
+                vm.salvarVarias(novas)
+                loteKitId = NENHUM
+                avisar(if (novas.size == 1) "1 ferramenta adicionada ao kit" else "${novas.size} ferramentas adicionadas ao kit")
+            },
+        )
+        return
+    }
 
     if (editandoId != NENHUM) {
         val atual: Ferramenta? = lista.firstOrNull { it.id == editandoId }
@@ -62,6 +79,7 @@ fun OficinaApp(vm: OficinaViewModel = viewModel()) {
             inicial = atual,
             kits = kits,
             kitPadrao = kitAberto?.id,
+            onCriarKit = { k, aoSalvar -> vm.salvarKit(k, aoSalvar) },
             onFechar = { editandoId = NENHUM },
             onSalvar = { f ->
                 vm.salvar(f)
@@ -90,7 +108,7 @@ fun OficinaApp(vm: OficinaViewModel = viewModel()) {
                 kitAbertoId = NENHUM
                 avisar("Kit apagado")
             },
-            onNovaNoKit = { editandoId = 0L },
+            onNovaNoKit = { loteKitId = kitAberto.id },
             onAbrir = { detalheId = it.id },
         )
     } else {
